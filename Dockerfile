@@ -22,7 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && cd fastllm \
     # 下面这行 CMAKE_CUDA_ARCHITECTURES 与 CUDA_ARCH 在此不能替换使用，可能是Cmake的bug，使用CUDA_ARCH即可
     && bash install.sh -DUSE_CUDA=ON -DUSE_NUMA=ON -DCUDA_ARCH=89 -DCMAKE_CUDA_COMPILER=$(which nvcc) \
+    # Prepare source for tools setup by moving fastllm_pytools to tools/scripts/ftllm
+    && mv /app/fastllm/tools/fastllm_pytools /app/fastllm/tools/scripts/ftllm \
+    # Install ftllm command line tools
+    && cd /app/fastllm/tools/scripts && python3 setup.py install \
     # 清理编译临时文件
+    && cd /app/fastllm \
     && rm -rf build/CMakeFiles build/*.o
 
 # 多阶段构建：创建最终镜像
@@ -47,7 +52,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 从构建阶段复制编译好的FastLLM，只复制必要文件
 COPY --from=builder /app/fastllm /app/fastllm
-COPY --from=builder /usr/local/lib/python3*/dist-packages/fastllm* /usr/local/lib/python3.10/dist-packages/
+COPY --from=builder /usr/local/lib/python3.10/dist-packages/ /usr/local/lib/python3.10/dist-packages/
+COPY --from=builder /usr/local/bin/ftllm /usr/local/bin/ftllm
+COPY --from=builder /usr/local/bin/streamlit /usr/local/bin/streamlit
+RUN chmod +x /usr/local/bin/ftllm /usr/local/bin/streamlit
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
